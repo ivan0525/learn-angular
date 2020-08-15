@@ -1,6 +1,7 @@
 import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { ProductAlertsComponent } from './product-alerts.component';
+import { RouterTestingModule } from '@angular/router/testing';
 
 describe('ProductAlertsComponent', () => {
   let component: ProductAlertsComponent;
@@ -8,6 +9,7 @@ describe('ProductAlertsComponent', () => {
 
   beforeEach(async(() => {
     TestBed.configureTestingModule({
+      imports: [RouterTestingModule],
       declarations: [ProductAlertsComponent],
     }).compileComponents();
   }));
@@ -18,7 +20,9 @@ describe('ProductAlertsComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  it('should create the app', () => {
+    const fixture = TestBed.createComponent(ProductAlertsComponent);
+    const app = fixture.componentInstance;
+    expect(app).toBeTruthy();
   });
 });
