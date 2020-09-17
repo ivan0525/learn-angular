@@ -103,7 +103,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "ɵsetRootDomAdapter", function() { return setRootDomAdapter; });
 /* harmony import */ var _angular_core__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @angular/core */ "./node_modules/@angular/core/__ivy_ngcc__/fesm2015/core.js");
 /**
- * @license Angular v10.0.14
+ * @license Angular v10.0.9
  * (c) 2010-2020 Google LLC. https://angular.io/
  * License: MIT
  */
@@ -3252,7 +3252,7 @@ class NgForOf {
      * rather than the identity of the object itself.
      *
      * The function receives two inputs,
-     * the iteration index and the associated node data.
+     * the iteration index and the node object ID.
      */
     set ngForTrackBy(fn) {
         if (Object(_angular_core__WEBPACK_IMPORTED_MODULE_0__["isDevMode"])() && fn != null && typeof fn !== 'function') {
@@ -5386,7 +5386,7 @@ function isPlatformWorkerUi(platformId) {
 /**
  * @publicApi
  */
-const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_0__["Version"]('10.0.14');
+const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_0__["Version"]('10.0.9');
 
 /**
  * @license
@@ -5439,7 +5439,7 @@ class BrowserViewportScroller {
      * @returns The position in screen coordinates.
      */
     getScrollPosition() {
-        if (this.supportsScrolling()) {
+        if (this.supportScrollRestoration()) {
             return [this.window.scrollX, this.window.scrollY];
         }
         else {
@@ -5451,7 +5451,7 @@ class BrowserViewportScroller {
      * @param position The new position in screen coordinates.
      */
     scrollToPosition(position) {
-        if (this.supportsScrolling()) {
+        if (this.supportScrollRestoration()) {
             this.window.scrollTo(position[0], position[1]);
         }
     }
@@ -5460,7 +5460,7 @@ class BrowserViewportScroller {
      * @param anchor The ID of the anchor element.
      */
     scrollToAnchor(anchor) {
-        if (this.supportsScrolling()) {
+        if (this.supportScrollRestoration()) {
             const elSelected = this.document.getElementById(anchor) || this.document.getElementsByName(anchor)[0];
             if (elSelected) {
                 this.scrollToElement(elSelected);
@@ -5505,14 +5505,6 @@ class BrowserViewportScroller {
             // setter function.
             return !!scrollRestorationDescriptor &&
                 !!(scrollRestorationDescriptor.writable || scrollRestorationDescriptor.set);
-        }
-        catch (_a) {
-            return false;
-        }
-    }
-    supportsScrolling() {
-        try {
-            return !!this.window.scrollTo;
         }
         catch (_a) {
             return false;
@@ -5630,7 +5622,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var rxjs_operators__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! rxjs/operators */ "./node_modules/rxjs/_esm2015/operators/index.js");
 /* harmony import */ var _angular_common__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @angular/common */ "./node_modules/@angular/common/__ivy_ngcc__/fesm2015/common.js");
 /**
- * @license Angular v10.0.14
+ * @license Angular v10.0.9
  * (c) 2010-2020 Google LLC. https://angular.io/
  * License: MIT
  */
@@ -8211,7 +8203,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var rxjs__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! rxjs */ "./node_modules/rxjs/_esm2015/index.js");
 /* harmony import */ var rxjs_operators__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! rxjs/operators */ "./node_modules/rxjs/_esm2015/operators/index.js");
 /**
- * @license Angular v10.0.14
+ * @license Angular v10.0.9
  * (c) 2010-2020 Google LLC. https://angular.io/
  * License: MIT
  */
@@ -12695,9 +12687,8 @@ class DOMParserHelper {
     getInertBodyElement(html) {
         // We add these extra elements to ensure that the rest of the content is parsed as expected
         // e.g. leading whitespace is maintained and tags like `<meta>` do not get hoisted to the
-        // `<head>` tag. Note that the `<body>` tag is closed implicitly to prevent unclosed tags
-        // in `html` from consuming the otherwise explicit `</body>` tag.
-        html = '<body><remove></remove>' + html;
+        // `<head>` tag.
+        html = '<body><remove></remove>' + html + '</body>';
         try {
             const body = new window.DOMParser().parseFromString(html, 'text/html').body;
             body.removeChild(body.firstChild);
@@ -17148,6 +17139,16 @@ function detachView(lContainer, removeIndex) {
     return viewToDetach;
 }
 /**
+ * Removes a view from a container, i.e. detaches it and then destroys the underlying LView.
+ *
+ * @param lContainer The container from which to remove a view
+ * @param removeIndex The index of the view to remove
+ */
+function removeView(lContainer, removeIndex) {
+    const detachedView = detachView(lContainer, removeIndex);
+    detachedView && destroyLView(detachedView[TVIEW], detachedView);
+}
+/**
  * A standalone function which destroys an LView,
  * conducting clean up (e.g. removing listeners, calling onDestroys).
  *
@@ -18369,17 +18370,8 @@ function createContainerRef(ViewContainerRefToken, ElementRefToken, hostTNode, h
             remove(index) {
                 this.allocateContainerIfNeeded();
                 const adjustedIdx = this._adjustIndex(index, -1);
-                const detachedView = detachView(this._lContainer, adjustedIdx);
-                if (detachedView) {
-                    // Before destroying the view, remove it from the container's array of `ViewRef`s.
-                    // This ensures the view container length is updated before calling
-                    // `destroyLView`, which could recursively call view container methods that
-                    // rely on an accurate container length.
-                    // (e.g. a method on this view container being called by a child directive's OnDestroy
-                    // lifecycle hook)
-                    removeFromArray(this._lContainer[VIEW_REFS], adjustedIdx);
-                    destroyLView(detachedView[TVIEW], detachedView);
-                }
+                removeView(this._lContainer, adjustedIdx);
+                removeFromArray(this._lContainer[VIEW_REFS], adjustedIdx);
             }
             detach(index) {
                 this.allocateContainerIfNeeded();
@@ -18591,42 +18583,13 @@ function isType(v) {
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-/*
- * #########################
- * Attention: These Regular expressions have to hold even if the code is minified!
- * ##########################
- */
 /**
- * Regular expression that detects pass-through constructors for ES5 output. This Regex
- * intends to capture the common delegation pattern emitted by TypeScript and Babel. Also
- * it intends to capture the pattern where existing constructors have been downleveled from
- * ES2015 to ES5 using TypeScript w/ downlevel iteration. e.g.
- *
- * ```
- *   function MyClass() {
- *     var _this = _super.apply(this, arguments) || this;
- * ```
- *
- * ```
- *   function MyClass() {
- *     var _this = _super.apply(this, __spread(arguments)) || this;
- * ```
- *
- * More details can be found in: https://github.com/angular/angular/issues/38453.
+ * Attention: These regex has to hold even if the code is minified!
  */
-const ES5_DELEGATE_CTOR = /^function\s+\S+\(\)\s*{[\s\S]+\.apply\(this,\s*(arguments|[^()]+\(arguments\))\)/;
-/** Regular expression that detects ES2015 classes which extend from other classes. */
-const ES2015_INHERITED_CLASS = /^class\s+[A-Za-z\d$_]*\s*extends\s+[^{]+{/;
-/**
- * Regular expression that detects ES2015 classes which extend from other classes and
- * have an explicit constructor defined.
- */
-const ES2015_INHERITED_CLASS_WITH_CTOR = /^class\s+[A-Za-z\d$_]*\s*extends\s+[^{]+{[\s\S]*constructor\s*\(/;
-/**
- * Regular expression that detects ES2015 classes which extend from other classes
- * and inherit a constructor.
- */
-const ES2015_INHERITED_CLASS_WITH_DELEGATE_CTOR = /^class\s+[A-Za-z\d$_]*\s*extends\s+[^{]+{[\s\S]*constructor\s*\(\)\s*{\s*super\(\.\.\.arguments\)/;
+const DELEGATE_CTOR = /^function\s+\S+\(\)\s*{[\s\S]+\.apply\(this,\s*arguments\)/;
+const INHERITED_CLASS = /^class\s+[A-Za-z\d$_]*\s*extends\s+[^{]+{/;
+const INHERITED_CLASS_WITH_CTOR = /^class\s+[A-Za-z\d$_]*\s*extends\s+[^{]+{[\s\S]*constructor\s*\(/;
+const INHERITED_CLASS_WITH_DELEGATE_CTOR = /^class\s+[A-Za-z\d$_]*\s*extends\s+[^{]+{[\s\S]*constructor\s*\(\)\s*{\s*super\(\.\.\.arguments\)/;
 /**
  * Determine whether a stringified type is a class which delegates its constructor
  * to its parent.
@@ -18636,9 +18599,8 @@ const ES2015_INHERITED_CLASS_WITH_DELEGATE_CTOR = /^class\s+[A-Za-z\d$_]*\s*exte
  * an initialized instance property.
  */
 function isDelegateCtor(typeStr) {
-    return ES5_DELEGATE_CTOR.test(typeStr) ||
-        ES2015_INHERITED_CLASS_WITH_DELEGATE_CTOR.test(typeStr) ||
-        (ES2015_INHERITED_CLASS.test(typeStr) && !ES2015_INHERITED_CLASS_WITH_CTOR.test(typeStr));
+    return DELEGATE_CTOR.test(typeStr) || INHERITED_CLASS_WITH_DELEGATE_CTOR.test(typeStr) ||
+        (INHERITED_CLASS.test(typeStr) && !INHERITED_CLASS_WITH_CTOR.test(typeStr));
 }
 class ReflectionCapabilities {
     constructor(reflect) {
@@ -23788,8 +23750,7 @@ function consumeStyleKey(text, startIndex, endIndex) {
     let ch;
     while (startIndex < endIndex &&
         ((ch = text.charCodeAt(startIndex)) === 45 /* DASH */ || ch === 95 /* UNDERSCORE */ ||
-            ((ch & -33 /* UPPER_CASE */) >= 65 /* A */ && (ch & -33 /* UPPER_CASE */) <= 90 /* Z */) ||
-            (ch >= 48 /* ZERO */ && ch <= 57 /* NINE */))) {
+            ((ch & -33 /* UPPER_CASE */) >= 65 /* A */ && (ch & -33 /* UPPER_CASE */) <= 90 /* Z */))) {
         startIndex++;
     }
     return startIndex;
@@ -27422,7 +27383,7 @@ class Version {
 /**
  * @publicApi
  */
-const VERSION = new Version('10.0.14');
+const VERSION = new Version('10.0.9');
 
 /**
  * @license
@@ -40073,7 +40034,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var rxjs__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! rxjs */ "./node_modules/rxjs/_esm2015/index.js");
 /* harmony import */ var rxjs_operators__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! rxjs/operators */ "./node_modules/rxjs/_esm2015/operators/index.js");
 /**
- * @license Angular v10.0.14
+ * @license Angular v10.0.9
  * (c) 2010-2020 Google LLC. https://angular.io/
  * License: MIT
  */
@@ -46880,7 +46841,7 @@ FormBuilder.ɵprov = _angular_core__WEBPACK_IMPORTED_MODULE_0__["ɵɵdefineInjec
 /**
  * @publicApi
  */
-const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_0__["Version"]('10.0.14');
+const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_0__["Version"]('10.0.9');
 
 /**
  * @license
@@ -47054,7 +47015,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "ɵgetDOM", function() { return _angular_common__WEBPACK_IMPORTED_MODULE_0__["ɵgetDOM"]; });
 
 /**
- * @license Angular v10.0.14
+ * @license Angular v10.0.9
  * (c) 2010-2020 Google LLC. https://angular.io/
  * License: MIT
  */
@@ -49185,7 +49146,7 @@ function elementMatches(n, selector) {
 /**
  * @publicApi
  */
-const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_1__["Version"]('10.0.14');
+const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_1__["Version"]('10.0.9');
 
 /**
  * @license
@@ -49301,7 +49262,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var rxjs__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! rxjs */ "./node_modules/rxjs/_esm2015/index.js");
 /* harmony import */ var rxjs_operators__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! rxjs/operators */ "./node_modules/rxjs/_esm2015/operators/index.js");
 /**
- * @license Angular v10.0.14
+ * @license Angular v10.0.9
  * (c) 2010-2020 Google LLC. https://angular.io/
  * License: MIT
  */
@@ -53370,7 +53331,7 @@ class Router {
         this.navigated = false;
         this.lastSuccessfulId = -1;
     }
-    /** @nodoc */
+    /** @docsNotRequired */
     ngOnDestroy() {
         this.dispose();
     }
@@ -53780,17 +53741,9 @@ class RouterLink {
         this.router = router;
         this.route = route;
         this.commands = [];
-        /** @internal */
-        this.onChanges = new rxjs__WEBPACK_IMPORTED_MODULE_2__["Subject"]();
         if (tabIndex == null) {
             renderer.setAttribute(el.nativeElement, 'tabindex', '0');
         }
-    }
-    /** @nodoc */
-    ngOnChanges(changes) {
-        // This is subscribed to by `RouterLinkActive` so that it knows to update when there are changes
-        // to the RouterLinks it's tracking.
-        this.onChanges.next(this);
     }
     /**
      * Commands to pass to {@link Router#createUrlTree Router#createUrlTree}.
@@ -53816,7 +53769,6 @@ class RouterLink {
         }
         this.preserve = value;
     }
-    /** @nodoc */
     onClick() {
         const extras = {
             skipLocationChange: attrBoolValue(this.skipLocationChange),
@@ -53840,7 +53792,7 @@ class RouterLink {
 RouterLink.ɵfac = function RouterLink_Factory(t) { return new (t || RouterLink)(_angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdirectiveInject"](Router), _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdirectiveInject"](ActivatedRoute), _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵinjectAttribute"]('tabindex'), _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdirectiveInject"](_angular_core__WEBPACK_IMPORTED_MODULE_1__["Renderer2"]), _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdirectiveInject"](_angular_core__WEBPACK_IMPORTED_MODULE_1__["ElementRef"])); };
 RouterLink.ɵdir = _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵdefineDirective"]({ type: RouterLink, selectors: [["", "routerLink", "", 5, "a", 5, "area"]], hostBindings: function RouterLink_HostBindings(rf, ctx) { if (rf & 1) {
         _angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵlistener"]("click", function RouterLink_click_HostBindingHandler() { return ctx.onClick(); });
-    } }, inputs: { routerLink: "routerLink", preserveQueryParams: "preserveQueryParams", queryParams: "queryParams", fragment: "fragment", queryParamsHandling: "queryParamsHandling", preserveFragment: "preserveFragment", skipLocationChange: "skipLocationChange", replaceUrl: "replaceUrl", state: "state" }, features: [_angular_core__WEBPACK_IMPORTED_MODULE_1__["ɵɵNgOnChangesFeature"]] });
+    } }, inputs: { routerLink: "routerLink", preserveQueryParams: "preserveQueryParams", queryParams: "queryParams", fragment: "fragment", queryParamsHandling: "queryParamsHandling", preserveFragment: "preserveFragment", skipLocationChange: "skipLocationChange", replaceUrl: "replaceUrl", state: "state" } });
 RouterLink.ctorParameters = () => [
     { type: Router },
     { type: ActivatedRoute },
@@ -53870,9 +53822,7 @@ RouterLink.propDecorators = {
             type: _angular_core__WEBPACK_IMPORTED_MODULE_1__["Input"]
         }], preserveQueryParams: [{
             type: _angular_core__WEBPACK_IMPORTED_MODULE_1__["Input"]
-        }], 
-    /** @nodoc */
-    onClick: [{
+        }], onClick: [{
             type: _angular_core__WEBPACK_IMPORTED_MODULE_1__["HostListener"],
             args: ['click']
         }], queryParams: [{
@@ -53907,8 +53857,6 @@ class RouterLinkWithHref {
         this.route = route;
         this.locationStrategy = locationStrategy;
         this.commands = [];
-        /** @internal */
-        this.onChanges = new rxjs__WEBPACK_IMPORTED_MODULE_2__["Subject"]();
         this.subscription = router.events.subscribe((s) => {
             if (s instanceof NavigationEnd) {
                 this.updateTargetUrlAndHref();
@@ -53939,16 +53887,12 @@ class RouterLinkWithHref {
         }
         this.preserve = value;
     }
-    /** @nodoc */
     ngOnChanges(changes) {
         this.updateTargetUrlAndHref();
-        this.onChanges.next(this);
     }
-    /** @nodoc */
     ngOnDestroy() {
         this.subscription.unsubscribe();
     }
-    /** @nodoc */
     onClick(button, ctrlKey, metaKey, shiftKey) {
         if (button !== 0 || ctrlKey || metaKey || shiftKey) {
             return true;
@@ -54011,9 +53955,7 @@ RouterLinkWithHref.propDecorators = {
             type: _angular_core__WEBPACK_IMPORTED_MODULE_1__["Input"]
         }], preserveQueryParams: [{
             type: _angular_core__WEBPACK_IMPORTED_MODULE_1__["Input"]
-        }], 
-    /** @nodoc */
-    onClick: [{
+        }], onClick: [{
             type: _angular_core__WEBPACK_IMPORTED_MODULE_1__["HostListener"],
             args: ['click', ['$event.button', '$event.ctrlKey', '$event.metaKey', '$event.shiftKey']]
         }], href: [{
@@ -54119,47 +54061,26 @@ class RouterLinkActive {
         this.classes = [];
         this.isActive = false;
         this.routerLinkActiveOptions = { exact: false };
-        this.routerEventsSubscription = router.events.subscribe((s) => {
+        this.subscription = router.events.subscribe((s) => {
             if (s instanceof NavigationEnd) {
                 this.update();
             }
         });
     }
-    /** @nodoc */
     ngAfterContentInit() {
-        // `of(null)` is used to force subscribe body to execute once immediately (like `startWith`).
-        Object(rxjs__WEBPACK_IMPORTED_MODULE_2__["from"])([this.links.changes, this.linksWithHrefs.changes, Object(rxjs__WEBPACK_IMPORTED_MODULE_2__["of"])(null)])
-            .pipe(Object(rxjs_operators__WEBPACK_IMPORTED_MODULE_3__["mergeAll"])())
-            .subscribe(_ => {
-            this.update();
-            this.subscribeToEachLinkOnChanges();
-        });
-    }
-    subscribeToEachLinkOnChanges() {
-        var _a;
-        (_a = this.linkInputChangesSubscription) === null || _a === void 0 ? void 0 : _a.unsubscribe();
-        const allLinkChanges = [...this.links.toArray(), ...this.linksWithHrefs.toArray(), this.link, this.linkWithHref]
-            .filter((link) => !!link)
-            .map(link => link.onChanges);
-        this.linkInputChangesSubscription = Object(rxjs__WEBPACK_IMPORTED_MODULE_2__["from"])(allLinkChanges).pipe(Object(rxjs_operators__WEBPACK_IMPORTED_MODULE_3__["mergeAll"])()).subscribe(link => {
-            if (this.isActive !== this.isLinkActive(this.router)(link)) {
-                this.update();
-            }
-        });
+        this.links.changes.subscribe(_ => this.update());
+        this.linksWithHrefs.changes.subscribe(_ => this.update());
+        this.update();
     }
     set routerLinkActive(data) {
         const classes = Array.isArray(data) ? data : data.split(' ');
         this.classes = classes.filter(c => !!c);
     }
-    /** @nodoc */
     ngOnChanges(changes) {
         this.update();
     }
-    /** @nodoc */
     ngOnDestroy() {
-        var _a;
-        this.routerEventsSubscription.unsubscribe();
-        (_a = this.linkInputChangesSubscription) === null || _a === void 0 ? void 0 : _a.unsubscribe();
+        this.subscription.unsubscribe();
     }
     update() {
         if (!this.links || !this.linksWithHrefs || !this.router.navigated)
@@ -54301,11 +54222,9 @@ class RouterOutlet {
         this.name = name || PRIMARY_OUTLET;
         parentContexts.onChildOutletCreated(this.name, this);
     }
-    /** @nodoc */
     ngOnDestroy() {
         this.parentContexts.onChildOutletDestroyed(this.name);
     }
-    /** @nodoc */
     ngOnInit() {
         if (!this.activated) {
             // If the outlet was not instantiated at the time the route got activated we need to populate
@@ -54509,7 +54428,6 @@ class RouterPreloader {
         const ngModule = this.injector.get(_angular_core__WEBPACK_IMPORTED_MODULE_1__["NgModuleRef"]);
         return this.processRoutes(ngModule, this.router.config);
     }
-    /** @nodoc */
     ngOnDestroy() {
         if (this.subscription) {
             this.subscription.unsubscribe();
@@ -54629,7 +54547,6 @@ class RouterScroller {
     scheduleScrollEvent(routerEvent, anchor) {
         this.router.triggerEvent(new Scroll(routerEvent, this.lastSource === 'popstate' ? this.store[this.restoredId] : null, anchor));
     }
-    /** @nodoc */
     ngOnDestroy() {
         if (this.routerEventsSubscription) {
             this.routerEventsSubscription.unsubscribe();
@@ -55015,7 +54932,7 @@ function provideRouterInitializer() {
 /**
  * @publicApi
  */
-const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_1__["Version"]('10.0.14');
+const VERSION = new _angular_core__WEBPACK_IMPORTED_MODULE_1__["Version"]('10.0.9');
 
 /**
  * @license
